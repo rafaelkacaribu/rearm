@@ -11,13 +11,14 @@ _model_path = "yolov8n.pt"  # standard COCO model, downloads automatically
 
 @dataclass
 class DetectionResult:
-    x: float          # center X, pixels, relative to the original image
-    y: float          # center Y, pixels, relative to the original image
-    W: float          # box width in pixels
-    L: float          # box height in pixels
-    deg: float        # rotation angle [0, 180)
-    confidence: float # how sure the model is [0.0 - 1.0]
-    label: str        # what yolo thinks the object is
+    x: float           # center X, pixels, relative to the original image
+    y: float           # center Y, pixels, relative to the original image
+    W: float           # box width in pixels
+    L: float           # box height in pixels
+    deg: float         # rotation angle [0, 180)
+    confidence: float  # how sure the model is [0.0 - 1.0]
+    label: str         # what yolo thinks the object is
+    mask: np.ndarray   # binary mask of the object in original image coordinates (0 or 255)
 
     def __repr__(self):
         return (
@@ -47,31 +48,36 @@ def _rotated_box_from_mask(mask: np.ndarray) -> Optional[tuple]:
     return cv2.minAreaRect(largest)  # ((cx, cy), (w, h), angle)
 
 
-def _fallback_from_grayscale(roi: np.ndarray, threshold: int = 200) -> Optional[tuple]:
-    # yolo found nothing — try plain grayscale threshold as last resort
+def _make_mask(roi: np.ndarray, bg_threshold: int = 200) -> np.ndarray:
+    # filter out white background pixels — what's left is the object
+    # works by thresholding in grayscale: bright = background, dark = object
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) if len(roi.shape) == 3 else roi.copy()
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    _, binary = cv2.threshold(blurred, threshold, 255, cv2.THRESH_BINARY_INV)
+    _, mask = cv2.threshold(blurred, bg_threshold, 255, cv2.THRESH_BINARY_INV)
+
+    # clean up noise and fill small holes
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-    cleaned = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
-    cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, kernel, iterations=1)
-    return _rotated_box_from_mask(cleaned)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+    return mask
 
 
 def detect_object(
     image: np.ndarray,
     bounds: Optional[tuple[int, int, int, int]] = None,
     confidence_threshold: float = 0.1,
+    bg_threshold: int = 200,
     model_path: str = _model_path,
 ) -> Optional[DetectionResult]:
     """
-    Takes a numpy image and returns the bounding box of the detected object.
+    Takes a numpy image and returns the bounding box + object mask.
 
     bounds is (x, y, w, h) if you only want to look at part of the image.
-    returned coordinates are always relative to the full original image.
+    returned coordinates and mask are always in the original image's space.
 
-    if yolo doesn't find anything it falls back to grayscale thresholding,
-    which works well on a plain white background.
+    bg_threshold controls background filtering — lower means stricter
+    (only very dark pixels count as object). default 200 works well
+    for a white sheet background.
     """
     model = _load_model(model_path)
 
@@ -95,6 +101,7 @@ def detect_object(
     rect = None
     label = "unknown"
     confidence = 0.0
+    mask_roi = None  # will hold the binary mask in roi coordinates
 
     if results and len(results[0].boxes) > 0:
         boxes = results[0].boxes
@@ -107,29 +114,31 @@ def detect_object(
         class_id = int(boxes.cls.cpu().numpy()[best_idx])
         label = model.names.get(class_id, str(class_id))
 
-        # get the bounding box as a binary mask, then fit a rotated rect on it
-        # this gives us the angle even though standard yolo doesn't output it
         x1, y1, x2, y2 = boxes.xyxy.cpu().numpy()[best_idx].astype(int)
         x1, y1 = max(0, x1), max(0, y1)
         x2, y2 = min(roi.shape[1], x2), min(roi.shape[0], y2)
 
-        # run grayscale threshold inside the yolo crop to get a tight rotated box
+        # mask the object inside the yolo crop, then place it back in roi space
         crop = roi[y1:y2, x1:x2]
-        inner_rect = _fallback_from_grayscale(crop)
+        crop_mask = _make_mask(crop, bg_threshold)
 
-        if inner_rect is not None:
-            (cx_crop, cy_crop), (w, h), angle = inner_rect
-            # shift from crop-local to roi-local coords
+        # place the crop mask back into a full-roi-sized mask
+        mask_roi = np.zeros(roi.shape[:2], dtype=np.uint8)
+        mask_roi[y1:y2, x1:x2] = crop_mask
+
+        rect = _rotated_box_from_mask(crop_mask)
+        if rect is not None:
+            (cx_crop, cy_crop), (w, h), angle = rect
             rect = ((cx_crop + x1, cy_crop + y1), (w, h), angle)
         else:
-            # just use the axis-aligned yolo box, angle = 0
             cx_box = (x1 + x2) / 2
             cy_box = (y1 + y2) / 2
             rect = ((cx_box, cy_box), (x2 - x1, y2 - y1), 0.0)
 
-    # yolo found nothing, try grayscale fallback on the whole roi
+    # yolo found nothing, fall back to masking the whole roi
     if rect is None:
-        rect = _fallback_from_grayscale(roi)
+        mask_roi = _make_mask(roi, bg_threshold)
+        rect = _rotated_box_from_mask(mask_roi)
         if rect is None:
             return None
 
@@ -140,6 +149,10 @@ def detect_object(
         w, h = h, w
         angle_deg = (angle_deg + 90) % 180
 
+    # place the mask back in full original image coordinates
+    full_mask = np.zeros((h_img, w_img), dtype=np.uint8)
+    full_mask[offset_y:offset_y + roi.shape[0], offset_x:offset_x + roi.shape[1]] = mask_roi
+
     return DetectionResult(
         x=float(cx_roi) + offset_x,
         y=float(cy_roi) + offset_y,
@@ -148,6 +161,7 @@ def detect_object(
         deg=angle_deg,
         confidence=confidence,
         label=label,
+        mask=full_mask,
     )
 
 
@@ -191,4 +205,22 @@ if __name__ == "__main__":
         sys.exit(1)
 
     result = detect_object(img)
-    print(result if result else "nothing detected")
+
+    if result:
+        print(result)
+
+        # show the mask overlaid on the original image
+        overlay = img.copy()
+        overlay[result.mask > 0] = (0, 200, 0)  # green = detected object pixels
+        preview = cv2.addWeighted(img, 0.6, overlay, 0.4, 0)
+
+        # draw the rotated bounding box on top
+        box_points = cv2.boxPoints(((result.x, result.y), (result.W, result.L), result.deg))
+        box_points = np.int32(box_points)
+        cv2.drawContours(preview, [box_points], 0, (0, 0, 255), 2)
+
+        cv2.imshow("detection", preview)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    else:
+        print("nothing detected")
