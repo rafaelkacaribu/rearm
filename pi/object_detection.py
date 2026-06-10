@@ -203,7 +203,7 @@ if __name__ == "__main__":
     if img is None:
         print(f"couldn't load {path}")
         sys.exit(1)
-
+    print(img.shape)
     result = detect_object(img)
 
     if result:
@@ -219,7 +219,7 @@ if __name__ == "__main__":
         box_points = np.int32(box_points)
         cv2.drawContours(preview, [box_points], 0, (0, 0, 255), 2)
 
-        cv2.imshow("detection", preview)
+        # cv2.imshow("detection", preview)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
     else:

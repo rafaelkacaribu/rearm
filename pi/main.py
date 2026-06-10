@@ -79,6 +79,7 @@ def rotate(image: np.ndarray, angle_deg: float) -> np.ndarray:
 if __name__ == "__main__":
     img = capture_area_image()
     img = rotate(img, 1)[50:img.shape[0]-150, :]
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     cv2.imwrite("area.jpg", img)
 
     
