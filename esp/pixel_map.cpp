@@ -23,7 +23,7 @@ int main() {
     double px;
     cout << "px: ";
     cin >> px;
-    cout << px_to_mm(px) << endl;
+    cout << px_to_mm(px) << "mm" << endl;
 
     return 0;
 }
