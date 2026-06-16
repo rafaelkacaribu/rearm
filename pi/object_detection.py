@@ -51,7 +51,10 @@ def _rotated_box_from_mask(mask: np.ndarray) -> Optional[tuple]:
 def _make_mask(roi: np.ndarray, bg_threshold: int = 200) -> np.ndarray:
     # filter out white background pixels — what's left is the object
     # works by thresholding in grayscale: bright = background, dark = object
-    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) if len(roi.shape) == 3 else roi.copy()
+    if len(roi.shape) == 3:
+        gray = (0.299 * roi[:, :, 2] + 0.587 * roi[:, :, 1] + 0.114 * roi[:, :, 0]).astype(np.uint8)
+    else:
+        gray = roi.copy()
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     _, mask = cv2.threshold(blurred, bg_threshold, 255, cv2.THRESH_BINARY_INV)
 
