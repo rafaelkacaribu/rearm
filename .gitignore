@@ -1,3 +1,5 @@
 *.jpg
 token.txt
 .DS_Store
+.pio/
+.vscode/
