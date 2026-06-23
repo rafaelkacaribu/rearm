@@ -11,10 +11,10 @@ EVShield evshield;
 // Motor B2 -> Touch sensor BBS2
 // TODO adjust ports
 
-EVs_NXTTouch touchA1;
-EVs_NXTTouch touchA2;
-EVs_NXTTouch touchB1;
-EVs_NXTTouch touchB2;
+EVs_NXTTouch touchBase;
+EVs_NXTTouch touchMain;
+EVs_NXTTouch touchClaw;
+EVs_NXTTouch touchAux;
 
 const int HOMING_SPEED = 7; 
 const unsigned long HOMING_TIMEOUT = 60000; // 15 seconds
@@ -43,10 +43,10 @@ void setup() {
   evshield.init(SH_HardwareI2C);
 
   // initialize touch sensors
-  touchA1.init(&evshield, SH_BBS2);
-  touchA2.init(&evshield, SH_BAS1);
-  touchB1.init(&evshield, SH_BBS1);
-  touchB2.init(&evshield, SH_BAS2);
+  touchBase.init(&evshield, SH_BBS2);
+  touchMain.init(&evshield, SH_BAS1);
+  touchAux.init(&evshield, SH_BAS2);
+  touchClaw.init(&evshield, SH_BBS1);
 
   stopAllMotors();
   
@@ -72,16 +72,16 @@ void stopAllMotors() {
 void homeAllMotors() {
   Serial.println("Starting homing...");
 
-  bool homedA1 = touchA1.isPressed();
-  bool homedA2 = touchA2.isPressed();
-  bool homedB1 = touchB1.isPressed();
-  bool homedB2 = touchB2.isPressed();
+  bool baseHomed = touchBase.isPressed();
+  bool mainHomed = touchMain.isPressed();
+  bool auxHomed = touchAux.isPressed();
+  bool clawHomed = touchClaw.isPressed();
 
   unsigned long startTime = millis();
 
   // start motors that are not already pressing their home switch
 
-  if (!homedA2) {
+  if (!mainHomed) {
     evshield.bank_a.motorRunUnlimited(
         SH_Motor_2,
         HOMING_DIR_A2,
@@ -89,7 +89,7 @@ void homeAllMotors() {
         );
   }
 
-  if (!homedB2) {
+  if (!auxHomed) {
     evshield.bank_b.motorRunUnlimited(
         SH_Motor_2,
         HOMING_DIR_B2,
@@ -97,21 +97,21 @@ void homeAllMotors() {
         );
   }
 
-  while (!(homedA2 && homedB2)) {
-    if (!homedA2 && touchA2.isPressed()) {
+  while (!(mainHomed && auxHomed)) {
+    if (!mainHomed && touchMain.isPressed()) {
       evshield.bank_a.motorStop(SH_Motor_2, SH_Next_Action_Brake);
       evshield.bank_a.motorResetEncoder(SH_Motor_2);
 
-      homedA2 = true;
-      Serial.println("Motor A2 homed.");
+      mainHomed = true;
+      Serial.println("Main arm motor homed.");
     }
 
-    if (!homedB2 && touchB2.isPressed()) {
+    if (!auxHomed && touchAux.isPressed()) {
       evshield.bank_b.motorStop(SH_Motor_2, SH_Next_Action_Brake);
       evshield.bank_b.motorResetEncoder(SH_Motor_2);
 
-      homedB2 = true;
-      Serial.println("Motor B2 homed.");
+      auxHomed = true;
+      Serial.println("Aux arm motor B2 homed.");
     }
 
     // safety timeout
@@ -127,15 +127,15 @@ void homeAllMotors() {
 
   startTime = millis();
 
-  if (!homedA1) {
+  if (!baseHomed) {
     evshield.bank_a.motorRunUnlimited(
         SH_Motor_1,
         HOMING_DIR_A1,
-        HOMING_SPEED
+        6
         );
   }
 
-  if (!homedB1) {
+  if (!clawHomed) {
     evshield.bank_b.motorRunUnlimited(
         SH_Motor_1,
         HOMING_DIR_B1,
@@ -144,21 +144,21 @@ void homeAllMotors() {
   }
 
   // monitor sensors until all motors are homed
-  while (!(homedA1 && homedB1)) {
-    if (!homedA1 && touchA1.isPressed()) {
+  while (!(baseHomed && clawHomed)) {
+    if (!baseHomed && touchBase.isPressed()) {
       evshield.bank_a.motorStop(SH_Motor_1, SH_Next_Action_Brake);
       evshield.bank_a.motorResetEncoder(SH_Motor_1);
 
-      homedA1 = true;
-      Serial.println("Motor A1 homed.");
+      baseHomed = true;
+      Serial.println("Base motor homed.");
     }
 
-    if (!homedB1 && touchB1.isPressed()) {
-      evshield.bank_b.motorStop(SH_Motor_1, SH_Next_Action_Brake);
+    if (!clawHomed && touchClaw.isPressed()) {
+      evshield.bank_b.motorStop(SH_Motor_1, SH_Next_Action_Float);
       evshield.bank_b.motorResetEncoder(SH_Motor_1);
 
-      homedB1 = true;
-      Serial.println("Motor B1 homed.");
+      clawHomed = true;
+      Serial.println("Claw motor homed.");
     }
 
     // safety timeout
@@ -169,7 +169,6 @@ void homeAllMotors() {
       return;
     }
 
-    delay(10);
   }
 
   stopAllMotors();

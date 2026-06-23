@@ -21,9 +21,11 @@ double px_to_mm(double px) {
 
 int main() {
     double px;
-    cout << "px: ";
-    cin >> px;
-    cout << px_to_mm(px) << "mm" << endl;
+    while(true) {
+        cout << "px: ";
+        cin >> px;
+        cout << px_to_mm(px) << "mm" << endl;
+    }
 
     return 0;
 }

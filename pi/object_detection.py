@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 _DEFAULT_DIFF_THRESHOLD = 15   # catches object + shadow
-_OBJECT_DIFF_THRESHOLD  = 40   # catches object only (shadow is softer, misses this)
+_OBJECT_DIFF_THRESHOLD  = 90 # catches object only (shadow is softer, misses this)
 _MIN_CONTOUR_AREA = 200
 _MAX_CONTOUR_AREA_FRAC = 0.15
 _MIN_CONTOUR_AREA_FRAC = 0.0003

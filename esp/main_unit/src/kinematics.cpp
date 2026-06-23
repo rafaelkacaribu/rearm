@@ -10,12 +10,12 @@
 #define CLAW_GRAB_RATIO 40
 
 #define ZONE_W      392.0 
-#define ZONE_H      208.0
-#define ZONE_GAP    93.0
+#define ZONE_H      200.0
+#define ZONE_GAP    109.0
 
 #define BASE_ELEVATION  119.0
 #define MAIN_ARM_LEN    136.0
-#define MAIN_ARM_ROT    45.0 // TODO: adjust
+#define MAIN_ARM_ROT    30.0
 #define AUX_ARM_LEN     80.0
 #define CLAW_EXTENSION  40.0
 #define CLAW_HEIGHT     112.0
