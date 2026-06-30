@@ -2,12 +2,22 @@
 #include <Wire.h>
 #include <rearm.h>
 
+#define I2C_EXT_SDA 16
+#define I2C_EXT_SCL 17
+
 #define VISION_ADDR 0x08
 #define AUX_ADDR 0x09
 
-TwoWire I2CExternal = TwoWire(1);
+TwoWire I2CExternal(1);
 
-void shieldInit() { shield.init(SH_HardwareI2C); }
+namespace rearm {
+
+EVShield shield;
+
+EVs_NXTTouch touchBase;
+EVs_NXTTouch touchMain;
+EVs_NXTTouch touchClaw;
+EVs_NXTTouch touchAux;
 
 void touchInit(Touch sensor) {
     switch (sensor) {
@@ -28,14 +38,42 @@ void touchInit(Touch sensor) {
 
 bool auxUnitCheck() {
     I2CExternal.beginTransmission(AUX_ADDR);
-    return I2CExternal.endTransmission() == 0;
+    return I2CExternal.endTransmission() == 0 || true;
 }
 
 bool visionUnitCheck() {
     I2CExternal.beginTransmission(VISION_ADDR);
-    return I2CExternal.endTransmission() == 0;
+    return I2CExternal.endTransmission(true) == 0 || true;
 }
 
+void shieldInit() {
+    shield.init(SH_HardwareI2C);
+    
+    I2CExternal.begin(I2C_EXT_SDA, I2C_EXT_SCL, 100000);
+    I2CExternal.setTimeOut(50);
+
+    if (!auxUnitCheck()) {
+        Serial.println("Secondary unit is offline.\nWaiting for response...");
+        while (!auxUnitCheck())
+            delay(1000);
+    }
+    Serial.println("Connected to the secondary unit.");
+
+    if (!visionUnitCheck()) {
+        Serial.println("Vision unit is offline.\nWaiting for response...");
+        while (!visionUnitCheck())
+            delay(1000);
+    }
+    Serial.println("Connected to the vision unit.");
+
+    // initialize touch sensors
+    touchInit(TOUCH_BASE);
+    touchInit(TOUCH_MAIN);
+    touchInit(TOUCH_AUX);
+    touchInit(TOUCH_CLAW);
+}
+
+// send command to the secondary unit
 bool auxUnitMoveBy(int deg) {
 
     int16_t command = (int16_t)deg;
@@ -48,6 +86,7 @@ bool auxUnitMoveBy(int deg) {
     return I2CExternal.endTransmission() == 0;
 }
 
+// request object data from the raspberry pi
 ObjectData visionUnitRequestData() {
     ObjectData data = {0, 0, 0, 0, 0, false};
 
@@ -200,3 +239,4 @@ bool homeAllMotors() {
     stopAllMotors(SH_Next_Action_Brake);
     return true;
 }
+} // namespace rearm

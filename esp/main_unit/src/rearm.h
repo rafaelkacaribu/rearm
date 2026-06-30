@@ -1,4 +1,4 @@
-#pragma once
+
 
 #include <EVShield.h>
 #include <EVs_NXTTouch.h>
@@ -9,6 +9,8 @@
 #define SPEED_CLAW 7
 
 #define HOMING_TIMEOUT 30000 // 30 seconds
+
+namespace rearm {
 
 typedef enum {
     MOTOR_BASE,
@@ -33,12 +35,12 @@ struct ObjectData {
     bool valid;
 };
 
-EVShield shield;
+extern EVShield shield;
 
-EVs_NXTTouch touchBase;
-EVs_NXTTouch touchMain;
-EVs_NXTTouch touchClaw;
-EVs_NXTTouch touchAux;
+extern EVs_NXTTouch touchBase;
+extern EVs_NXTTouch touchMain;
+extern EVs_NXTTouch touchClaw;
+extern EVs_NXTTouch touchAux;
 
 // Directions used during homing.
 
@@ -99,3 +101,5 @@ void stopAllMotors(SH_Next_Action action);
  * @brief Executes a homing sequence for all motors
  */
 bool homeAllMotors();
+
+} // namespace rearm
