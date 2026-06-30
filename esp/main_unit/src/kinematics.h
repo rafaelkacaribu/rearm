@@ -6,7 +6,8 @@ typedef struct {
     int aux;
     int claw;
     int grab;
-} JointAngles;
+    bool valid;
+} MotorAngles;
 
 /**
  * @brief Calculates absolute rotation angles for each motor.
@@ -17,6 +18,6 @@ typedef struct {
  * @param a Target rotation angle of the claw in degrees.
  * @param w Opening width of the claw in mm.
  *
- * @return JointAngles containing the final target rotation for each motor.
+ * @return MotorAngles containing the final target rotation for each motor.
  */
-JointAngles calculate_joint_angles(int x, int y, int z, int a, int w);
+MotorAngles calculate_motor_angles(int x, int y, int z, int a, int w);

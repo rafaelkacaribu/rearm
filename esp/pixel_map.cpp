@@ -3,10 +3,10 @@
 
 using namespace std;
 
-#define WPX   4562.0
-#define HPX   2392.0
-#define VIEW  75.0
-#define HMM   275.0
+#define WPX   4562.0 // image width
+#define HPX   2392.0 // image height
+#define VIEW  75.0 // diagonal angle of view
+#define HMM   275.0 // camera height in mm
 
 #define PI 3.141592
 
